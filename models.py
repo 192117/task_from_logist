@@ -1,4 +1,4 @@
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, validator, EmailStr
 
 
 class ShowTableGet(BaseModel):
@@ -55,40 +55,7 @@ class OrderPost(BaseModel):
 
     id: int
     types: str
-    mail: str
-
-    @validator('id')
-    def check_id(cls, v):
-        if v == 0:
-            raise ValueError("It is necessary to send 'id'")
-        elif v < 0:
-            raise ValueError("It is necessary to send 'id' > 0")
-        else:
-            return v
-
-    @validator('mail')
-    def check_mail(cls, v):
-        if v == '':
-            raise ValueError("It is necessary to send 'mail'")
-        else:
-            return v
-
-    @validator('types')
-    def check_types(cls, v):
-        if v == '':
-            raise ValueError("It is necessary to send 'types'")
-        else:
-            return v
-
-
-class CancelPost(BaseModel):
-    '''
-        Модель для POST запросов на /cancel/ .
-    '''
-
-    id: int
-    types: str
-    mail: str
+    mail: EmailStr
 
     @validator('id')
     def check_id(cls, v):
@@ -103,13 +70,6 @@ class CancelPost(BaseModel):
     def check_types(cls, v):
         if v == '':
             raise ValueError("It is necessary to send 'types'")
-        else:
-            return v
-
-    @validator('mail')
-    def check_mail(cls, v):
-        if v == '':
-            raise ValueError("It is necessary to send 'mail'")
         else:
             return v
 

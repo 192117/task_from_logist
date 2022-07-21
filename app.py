@@ -1,12 +1,14 @@
 import psycopg2, os
 import create_db
 from dotenv import load_dotenv as load
-from fastapi import FastAPI, Depends, Request
+from fastapi import FastAPI, Depends, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 from models import *
 from auth import *
 from auth_bearer import JWTBearer
 from errors import error_message
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+from pydantic import EmailStr
 
 
 
@@ -29,6 +31,17 @@ con = psycopg2.connect(
     port=port_db
 )
 
+conf = ConnectionConfig(
+    MAIL_USERNAME=os.getenv('MAIL_USERNAME'),
+    MAIL_PASSWORD=os.getenv('MAIL_PASSWORD'),
+    MAIL_FROM=os.getenv('MAIL_FROM'),
+    MAIL_PORT=os.getenv('MAIL_PORT'),
+    MAIL_SERVER=os.getenv('MAIL_SERVER'),
+    MAIL_FROM_NAME=os.getenv('MAIL_FROM_NAME'),
+    MAIL_TLS=False,
+    MAIL_SSL=True,
+    TEMPLATE_FOLDER='./templates'
+)
 
 @app.get('/show/')
 async def public_show(query: ShowTableGet = Depends(ShowTableGet)):
@@ -65,14 +78,25 @@ async def public_show(query: ShowTableGet = Depends(ShowTableGet)):
         return error_message(ex, ex.args)
 
 @app.post('/order/')
-async def public_order(body: OrderPost):
-    values = body.dict()
-    return {'table': values['types'], 'id_table': values['id'], 'email': values['mail'], 'status': 'order'}
+async def public_order(body: OrderPost, background_tasks: BackgroundTasks):
+    try:
+        values = body.dict()
+        message = MessageSchema(subject="Order status from LogicService", recipients=[values['mail'],], template_body=values)
+        fm = FastMail(conf)
+        background_tasks.add_task(fm.send_message, message, template_name='booking.html')
+    except Exception as ex:
+        return error_message(ex, ex.args)
 
-@app.post('/cancel/')
-async def public_cancel(body: CancelPost):
-    values = body.dict()
-    return {'table': values['types'], 'id_table': values['id'], 'email': values['mail'], 'status': 'cancel'}
+
+@app.get('/cancel/')
+async def public_cancel(id: int, types: str, mail: EmailStr, background_tasks: BackgroundTasks):
+    try:
+        message = MessageSchema(subject="Order status from LogicService", recipients=[mail,],
+                                template_body={'id': id, 'types': types})
+        fm = FastMail(conf)
+        background_tasks.add_task(fm.send_message, message, template_name='cancel.html')
+    except Exception as ex:
+        return error_message(ex, ex.args)
 
 @app.post('/registr/')
 async def public_registr(body: UserRegistrModelPost):
